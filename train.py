@@ -456,7 +456,7 @@ def parse_args():
     # 模型配置
     parser.add_argument('--model',              type=str, 
                         default="rdam_unet", 
-                        help=" unet, ResD_unet, rdam_unet, a_unet, m_unet, aicunet, vm_unet\
+                        help=" unet, ResD_unet, rdam_unet, a_unet, m_unet,\
                                Segnet, deeplabv3_resnet50, deeplabv3_mobilenetv3_large, pspnet, u2net_full, u2net_lite,")
     
     parser.add_argument('--loss_fn',            type=str, 
