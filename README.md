@@ -10,9 +10,9 @@
 </div>
 
 ## 📖 Table of Contents
-- [🌟 Core Contributions](#-核心贡献)
-- [⚡ Quick Start](#-快速启动)
-- [📦 Data Preparation](#-数据制备)
+- [🌟 Core Contributions](#-core-contributions)
+- [⚡ Quick Start](#-quick-start)
+- [📦 Data Preparation](#-data-preparation)
 - [©️ License](#️-license)
 - [📕 Statement](#-statement)
 
