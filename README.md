@@ -31,7 +31,7 @@
 ## ⚡ Quick Start
 **1. Clone Repository**
 ```bash
-git clone https://github.com/your_project
+git clone https://github.com/Runner-xc/RDAMU-Net.git
 ```
 
 **2. Configure Training Parameters**
