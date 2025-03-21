@@ -8,6 +8,7 @@ predict/
 *.jpg
 *.png
 *.jpeg
-!u2net.png
 *.tif
 **/__pycache__
+
+!images/
