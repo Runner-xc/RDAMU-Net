@@ -143,10 +143,10 @@ class EMA(nn.Module):
         weights = (torch.matmul(x11, x22) + torch.matmul(x21, x12)).reshape(b * self.group, 1, h, w)
         return (group_x * weights.sigmoid()).reshape(b, c, h, w)
     
-""""----------------------------------------------------EMAF-----------------------------------------------------"""
-class EMAF(nn.Module):
+""""----------------------------------------------------MDAM-----------------------------------------------------"""
+class MDAM(nn.Module):
     def __init__(self, channels, factor=32):
-        super(EMAF, self).__init__()
+        super(MDAM, self).__init__()
         self.group = factor
         assert channels // self.group > 0
         self.softmax = nn.Softmax(dim=1)

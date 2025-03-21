@@ -659,93 +659,10 @@ class PSPModule(nn.Module):
                 final = torch.cat([final, out], dim=1)
         final = torch.cat([inputs, final], dim=1)  # 将各特征图在通道维上拼接起来
         return final
-
-class ACPN(nn.Module):  #Adaptive Convolutional Pooling Network (ACPN)
+   
+class AMSFN(nn.Module):  
     def __init__(self, in_channels, mid_channels=None):
-        super(ACPN, self).__init__()
-        if mid_channels is None:
-            mid_channels = in_channels // 2 
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
-        # 3×3
-        self.cbrp1 = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(in_channels),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, padding=1, stride=1))      
-        # 5×5
-        self.cbrp2 = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, stride=1),
-            nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, in_channels, kernel_size=3, padding=1, stride=1),
-            nn.BatchNorm2d(in_channels),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=5, padding=2, stride=1))       
-        # 7×7
-        self.cbrp3 = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, stride=1),
-            nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, mid_channels, kernel_size=3, padding=1, stride=1),
-            nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, in_channels, kernel_size=3, padding=1, stride=1),
-            nn.BatchNorm2d(in_channels),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=7, padding=3, stride=1))
-
-        # 新增小目标检测层
-        self.cbrp4 = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size=1, padding=0, stride=1),
-            nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, in_channels, kernel_size=1, padding=0, stride=1),
-            nn.BatchNorm2d(in_channels),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=1, padding=0, stride=1)
-        )
-
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.sgm = nn.Sigmoid()
-        self.final_conv = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels, kernel_size=1, padding=0),
-            nn.BatchNorm2d(in_channels),
-            nn.ReLU(inplace=True))
-
-    def forward(self, x):
-        inputs = x
-        b, c, h, w = inputs.size()
-        c1 = self.maxpool(inputs)
-        s1 = self.avg_pool(c1).view(b, c)
-
-        c2 = self.cbrp1(inputs)
-        s2 = self.avg_pool(c2).view(b, c)
-
-        c3 = self.cbrp2(inputs)
-        s3 = self.avg_pool(c3).view(b, c)
-
-        c4 = self.cbrp3(inputs)
-        s4 = self.avg_pool(c4).view(b, c)
-
-        c5 = self.cbrp4(inputs)  # 小目标检测层
-        s5 = self.avg_pool(c5).view(b, c)
-
-        out = torch.stack([s1, s2, s3, s4, s5], dim=-1)
-        weights = self.sgm(out)
-
-        # 将权重作用到各个卷积结果上并相加
-        c1_weighted = c1 * weights[:, :, 0].unsqueeze(-1).unsqueeze(-1)
-        c2_weighted = c2 * weights[:, :, 1].unsqueeze(-1).unsqueeze(-1)
-        c3_weighted = c3 * weights[:, :, 2].unsqueeze(-1).unsqueeze(-1)
-        c4_weighted = c4 * weights[:, :, 3].unsqueeze(-1).unsqueeze(-1)
-
-        output = c1_weighted + c2_weighted + c3_weighted + c4_weighted
-        output = self.final_conv(output)
-        return output
-    
-class ACPNv2(nn.Module):  #Adaptive Convolutional Pooling Network (ACPN)
-    def __init__(self, in_channels, mid_channels=None):
-        super(ACPNv2, self).__init__()
+        super(AMSFN, self).__init__()
         if mid_channels is None:
             mid_channels = in_channels // 2 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)

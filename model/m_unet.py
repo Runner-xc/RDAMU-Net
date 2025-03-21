@@ -28,13 +28,13 @@ class M_UNet(nn.Module):
         self.base_channels = base_channels
         # 编码器 
         self.inconv = DoubleConv(in_channels, base_channels)
-        self.msaf1 = EMAF(base_channels) 
+        self.msaf1 = MDAM(base_channels) 
         self.down1 = Down(base_channels, base_channels*2)
-        self.msaf2 = EMAF(base_channels*2)
+        self.msaf2 = MDAM(base_channels*2)
         self.down2 = Down(base_channels*2, base_channels*4)
-        self.msaf3 = EMAF(base_channels*4)      
+        self.msaf3 = MDAM(base_channels*4)      
         self.down3 = Down(base_channels*4, base_channels*8)
-        self.msaf4 = EMAF(base_channels*8)
+        self.msaf4 = MDAM(base_channels*8)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         # dropout
         self.encoder_dropout = nn.Dropout2d(p=p)                            # 编码器更高dropout
