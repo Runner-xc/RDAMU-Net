@@ -13,11 +13,9 @@ from model.pspnet import PSPNet
 from model.Segnet import SegNet
 from model.u2net import u2net_full_config, u2net_lite_config
 from model.unet import UNet, ResD_UNet
-from model.aicunet import AICUNet
-from model.a_unet import A_UNet, A_UNetv2
+from model.a_unet import A_UNet
 from model.m_unet import M_UNet
-from model.msaf_unet import MSAF_UNet, MSAF_UNetv2
-from model.vm_unet import VMUNet
+from model.rdam_unet import RDAM_UNet
 from tabulate import tabulate
 from utils.train_and_eval import *
 from utils.model_initial import *
@@ -68,13 +66,13 @@ class TrainingComponents:
         model_map = {
             "u2net_full": u2net_full_config(),
             "u2net_lite": u2net_lite_config(),
+
             "unet": UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
             "ResD_unet": ResD_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
             "a_unet": A_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
             "m_unet": M_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
             "rdam_unet": RDAM_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
-            "aicunet": AICUNet(in_channels=3, n_classes=4, base_channels=32, p=args.dropout_p),
-            "vm_unet": VMUNet(input_channels=3, num_classes=4),
+
             "Segnet": SegNet(n_classes=4, dropout_p=args.dropout_p),
             "pspnet": PSPNet(classes=4, dropout=args.dropout_p, pretrained=False),
             "deeplabv3_resnet50": deeplabv3_resnet50(aux=False, pretrain_backbone=False, num_classes=4),
@@ -97,7 +95,7 @@ class TrainingComponents:
         return optim_map.get(self.args.optimizer, optim_map['AdamW'])()
 
     def get_scheduler(self, optimizer, train_loader):
-        """学习率调度器工厂"""
+        """学习率调度器"""
         if self.args.scheduler == 'CosineAnnealingLR':
             num_batches = len(train_loader)
             warmup_steps = self.args.warmup_epochs * num_batches
@@ -116,7 +114,7 @@ class TrainingComponents:
             raise ValueError(f"Unsupported scheduler: {self.args.scheduler}")
 
     def get_loss_fn(self):
-        """损失函数工厂"""
+        """损失函数"""
         loss_map = {
             'CrossEntropyLoss': CrossEntropyLoss(),
             'DiceLoss': diceloss(),
@@ -134,18 +132,18 @@ class TrainingComponents:
         
         if not os.path.exists(save_logs_path):
             os.makedirs(save_logs_path)
-        if self.args.save_flag:
-            if self.args.elnloss:
-                log_path = f'{save_logs_path}/optim_{self.args.optimizer}-lr_{self.args.lr}-l1_{self.args.l1_lambda}-l2_{self.args.l2_lambda}/{detailed_time_str}'
-                return SummaryWriter(log_path), log_path
-            else:
-                log_path = f'{save_logs_path}/optim_{self.args.optimizer}-lr_{self.args.lr}-wd_{self.args.wd}/{detailed_time_str}'
-                return SummaryWriter(log_path), log_path
+        
+        if self.args.elnloss:
+            log_path = f'{save_logs_path}/optim_{self.args.optimizer}-lr_{self.args.lr}-l1_{self.args.l1_lambda}-l2_{self.args.l2_lambda}/{detailed_time_str}'
+            return SummaryWriter(log_path), log_path
+        else:
+            log_path = f'{save_logs_path}/optim_{self.args.optimizer}-lr_{self.args.lr}-wd_{self.args.wd}/{detailed_time_str}'
+            return SummaryWriter(log_path), log_path
         
 
 # ---------------------------- Data Management ----------------------------
 class DataManager:
-    """数据管理类"""
+    """数据管理"""
     def __init__(self, args):
         self.args = args
         self.base_transform = ConfigPreset()
@@ -367,7 +365,8 @@ def main(args, detailed_time_str):
     optimizer = components.get_optimizer(model)
     scheduler = components.get_scheduler(optimizer, train_loader)
     loss_fn = components.get_loss_fn()
-    writer, log_path = components.get_writer(detailed_time_str)
+    if args.save_flag:
+        writer, log_path = components.get_writer(detailed_time_str)
     
     # 初始化训练管理器
     trainer = TrainingManager(args, model, optimizer, scheduler, loss_fn, components.device)
@@ -483,8 +482,8 @@ def parse_args():
     parser.add_argument('--amp',            type=bool,  default=True,   help='use mixed precision training or not')
     
     # flag参数
-    parser.add_argument('--tb',             type=bool,  default=True,   help='use tensorboard or not')   
-    parser.add_argument('--save_flag',      type=bool,  default=True,   help='save weights or not')    
+    parser.add_argument('--tb',             type=bool,  default=False,   help='use tensorboard or not')   
+    parser.add_argument('--save_flag',      type=bool,  default=False,   help='save weights or not')    
     parser.add_argument('--split_flag',     type=bool,  default=False,  help='split data or not')
     parser.add_argument('--change_params',  type=bool,  default=False,  help='change params or not')       
     

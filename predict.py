@@ -5,15 +5,14 @@ from torch.utils.data import DataLoader, Dataset
 from utils.my_data import SEM_DATA
 import argparse
 import time
-from model.deeplabv3 import deeplabv3_resnet50
+from model.deeplabv3 import deeplabv3_resnet50, deeplabv3_resnet101, deeplabv3_mobilenetv3_large
 from model.pspnet import PSPNet
 from model.Segnet import SegNet
 from model.u2net import u2net_full_config, u2net_lite_config
 from model.unet import UNet, ResD_UNet
-from model.aicunet import AICUNet
-from model.a_unet import A_UNet, A_UNetv2
+from model.a_unet import A_UNet
 from model.m_unet import M_UNet
-from model.msaf_unet import MSAF_UNet, MSAF_UNetv2
+from model.rdam_unet import RDAM_UNet
 from tqdm import tqdm
 from tabulate import tabulate
 from utils.train_and_eval import *
@@ -78,16 +77,11 @@ def main(args):
         model = ResD_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=0)
     elif args.model_name == "a_unet":
         model = A_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=0)
-    elif args.model_name == "a_unetv2":
-        model = A_UNetv2(in_channels=3, n_classes=4, p=0)
     elif args.model_name == "m_unet":
         model = M_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=0)
-    elif args.model_name == "msaf_unet":
-        model = MSAF_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=0)
-    elif args.model_name == "msaf_unetv2":
-        model = MSAF_UNetv2(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=0)
-    elif args.model_name == "aicunet":
-        model = AICUNet(in_channels=3, n_classes=4, p=0)
+    elif args.model_name == "rdam_unet":
+        model = RDAM_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=0)
+
     else:
         raise ValueError(f"model name error")
     
@@ -204,7 +198,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path',      type=str,       default='/mnt/e/VScode/WS-Hub/WS-U2net/U-2-Net/datasets/CSV/test_rock_sem_chged_256_a50_c80.csv')
     parser.add_argument('--base_size',      type=int,       default=256)
-    parser.add_argument('--model_name',     type=str,       default='msaf_unetv2',     help=' unet, a_unet, a_unetv2, m_unet, msaf_unet, msaf_unetv2, ResD_unet, aicunet, Segnet, pspnet, deeplabv3, u2net_full, u2net_lite')
+    parser.add_argument('--model_name',     type=str,       default='msaf_unetv2',     help=' unet, a_unet, m_unet, rdam_unet, ResD_unet, Segnet, pspnet, deeplabv3, u2net_full, u2net_lite')
     parser.add_argument('--weights_path',   type=str,       
                                             default='/mnt/e/VScode/WS-Hub/WS-U2net/U-2-Net/results/save_weights/msaf_unetv2/L_DiceLoss--S_CosineAnnealingLR/optim_AdamW-lr_0.0008-wd_1e-06/2025-03-12_15:38:06/model_best_ep_40.pth')
     

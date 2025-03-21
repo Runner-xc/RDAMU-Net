@@ -814,7 +814,7 @@ class DenseASPPBlock(nn.Module):
 if __name__ == '__main__':
     from attention import *
     x = torch.randn(16, 3, 256, 256)
-    model = ACPNv2(3, 4)
+    model = AMSFN(3, 4)
     out = model(x)
     print(out.shape, "\n",
           model)
