@@ -22,7 +22,7 @@
 ### 🔍 RDAMU-Net
 <div align="center">
 
-![效果对比示意图](./images/model.png)
+![效果对比示意图](./images/model.jpg)
 <em>▲ Figure2: RDAMU-Net</em>
 
 </div>
