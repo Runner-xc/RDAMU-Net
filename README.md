@@ -37,9 +37,9 @@ git clone https://github.com/Runner-xc/RDAMU-Net.git
 **2. Configure Training Parameters**
 ```bash
 python train.py \
-   --csv_path your_dataset.csv \
-   --model model \
-   --save_dir outputs
+   --data_path your_dataset.csv \
+   --data_root_path csv_root_path \
+   --model model 
    ```
 
 ## 📦 Data Preparation
