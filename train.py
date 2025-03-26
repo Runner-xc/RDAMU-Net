@@ -434,24 +434,24 @@ def parse_args():
     parser = argparse.ArgumentParser(description="SEM图像分割训练脚本")
     # 保存路径
     parser.add_argument('--data_path',          type=str, 
-                        default="/root/projects/WS-U2net/U-2-Net/datasets/CSV/rock_sem_chged_256_a50_c80.csv", 
+                        default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/datasets/CSV/rock_sem_chged_256_a50_c80.csv", 
                         help="path to csv dataset")
     
     parser.add_argument('--data_root_path',  type=str,
-                        default="/root/projects/WS-U2net/U-2-Net/datasets/CSV")
+                        default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/datasets/CSV")
     
     # results
     parser.add_argument('--save_scores_path',   type=str, 
-                        default='/root/projects/WS-U2net/U-2-Net/results/save_scores')
+                        default='/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/results/save_scores')
     
     parser.add_argument('--save_weight_path',   type=str,
-                        default="/root/projects/WS-U2net/U-2-Net/results/save_weights")
+                        default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/results/save_weights")
     
     parser.add_argument('--log_path',  type=str,
-                        default="/root/projects/WS-U2net/U-2-Net/results/logs")
+                        default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/results/logs")
     
     parser.add_argument('--modification_path', type=str,
-                        default="/root/projects/WS-U2net/U-2-Net/results/modification_log")
+                        default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/results/modification_log")
     
     # 模型配置
     parser.add_argument('--model',              type=str, 
