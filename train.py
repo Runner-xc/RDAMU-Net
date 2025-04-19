@@ -360,7 +360,7 @@ def main(args, detailed_time_str):
     
     # 初始化模型和训练组件
     model = components.get_model()
-    model_info = str(summary(model, (1, 3, 256, 256)))
+    model_info = str(summary(model))
 
     optimizer = components.get_optimizer(model)
     scheduler = components.get_scheduler(optimizer, train_loader)

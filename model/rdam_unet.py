@@ -2,8 +2,6 @@ import torch
 from torchinfo import summary
 import torch.nn as nn
 from tensorboardX import SummaryWriter
-from model.utils.attention import *
-from model.utils.modules import * 
 
 class OutConv(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -110,3 +108,13 @@ class RDAM_UNet(nn.Module):
         logits = self.out_conv(x)                        # [1, c, 256, 256]
         
         return logits
+
+if __name__ == "__main__":
+    from utils.attention import *
+    from utils.modules import * 
+    model = RDAM_UNet(in_channels=3, n_classes=4, p=0)
+    summary(model, (1, 3, 256, 256))
+
+else:
+    from model.utils.attention import *
+    from model.utils.modules import *   
