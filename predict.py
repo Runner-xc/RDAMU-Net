@@ -107,7 +107,7 @@ def main(args):
 
     if args.single:
         # 单张预测
-        image_path = "/mnt/e/VScode/WS-Hub/WS-U2net/U-2-Net/Image1 - 003.jpeg"
+        image_path = "/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/Image1 - 003.jpeg"
         # 滑窗预测
         if args.slide:
             save_path = f"{args.single_path}/{args.model_name}_sliding.png"
@@ -117,7 +117,8 @@ def main(args):
             img = Image.open(image_path).convert('RGB')
             img = np.array(img)
             img = torchvision.transforms.ToTensor()(img).to(device)
-            # img = torchvision.transforms.Resize((1024,1024))(img)
+            img = torchvision.transforms.Resize((1792, 2048))(img)
+            img = torchvision.transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))(img)
             img = img.unsqueeze(0)
             logits = model(img)
             pred_mask = torch.argmax(logits, dim=1)  
@@ -129,9 +130,9 @@ def main(args):
             single_path = args.single_path
             if not os.path.exists(single_path):
                 os.mkdir(single_path)
-            pred_img_pil.save(f"{single_path}/{args.model_name}.png")        
+            pred_img_pil.save(f"{single_path}/{args.model_name}_V1.png")        
             print("预测完成!")
-       
+        
     else:
         # test 多张
         with torch.no_grad():
@@ -196,16 +197,16 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path',      type=str,       default='/mnt/e/VScode/WS-Hub/WS-U2net/U-2-Net/datasets/CSV/test_rock_sem_chged_256_a50_c80.csv')
+    parser.add_argument('--data_path',      type=str,       default='/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/datasets/CSV/test_rock_sem_chged_256_a50_c80.csv')
     parser.add_argument('--base_size',      type=int,       default=256)
-    parser.add_argument('--model_name',     type=str,       default='msaf_unetv2',     help=' unet, a_unet, m_unet, rdam_unet, ResD_unet, Segnet, pspnet, deeplabv3, u2net_full, u2net_lite')
+    parser.add_argument('--model_name',     type=str,       default='pspnet',     help=' unet, a_unet, m_unet, rdam_unet, ResD_unet, Segnet, pspnet, deeplabv3, u2net_full, u2net_lite')
     parser.add_argument('--weights_path',   type=str,       
-                                            default='/mnt/e/VScode/WS-Hub/WS-U2net/U-2-Net/results/save_weights/msaf_unetv2/L_DiceLoss--S_CosineAnnealingLR/optim_AdamW-lr_0.0008-wd_1e-06/2025-03-12_15:38:06/model_best_ep_40.pth')
+                                            default='/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/results/save_weights/pspnet/L: DiceLoss--S: CosineAnnealingLR/optim: AdamW-lr: 0.0008-wd: 1e-06/2025-03-12_10-58-33/model_best_ep_67.pth')
     
-    parser.add_argument('--save_path',      type=str,       default='/mnt/e/VScode/WS-Hub/WS-U2net/U-2-Net/results/predict')
-    parser.add_argument('--single_path',    type=str,       default='/mnt/e/VScode/WS-Hub/WS-U2net/U-2-Net/results/single_predict')
-    parser.add_argument('--single',         type=bool,      default=True,          help='test single img or not')
-    parser.add_argument('--slide',          type=bool,      default=True)
+    parser.add_argument('--save_path',      type=str,       default='/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/results/predict')
+    parser.add_argument('--single_path',    type=str,       default='/mnt/e/VScode/WS-Hub/WS-UNet/UNet/results/single_predict')
+    parser.add_argument('--single',         type=bool,      default=False,          help='test single img or not')
+    parser.add_argument('--slide',          type=bool,      default=False)
     
     args = parser.parse_args()
     main(args)
