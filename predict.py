@@ -55,10 +55,6 @@ def main(args):
                     in_channels=3,
                     n_classes=4,
                     p=0)
-    elif args.model_name == 'u2net_full':
-        model = u2net_full_config()
-    elif args.model_name == 'u2net_lite':
-        model = u2net_lite_config()
     elif args.model_name == 'ResD_unet':
         model = ResD_UNet(
                     in_channels=3,

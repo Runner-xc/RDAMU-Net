@@ -56,17 +56,12 @@ class ConfigPreset:
 
 # ---------------------------- Core Components ----------------------------
 class TrainingComponents:
-    """训练组件"""
     def __init__(self, args):
         self.args = args
         self.device = torch.device(args.device if torch.cuda.is_available() else "cpu")
         
     def get_model(self):
-        """模型"""
         model_map = {
-            "u2net_full": u2net_full_config(),
-            "u2net_lite": u2net_lite_config(),
-
             "unet": UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
             "ResD_unet": ResD_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
             "a_unet": A_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
@@ -143,7 +138,6 @@ class TrainingComponents:
 
 # ---------------------------- Data Management ----------------------------
 class DataManager:
-    """数据管理"""
     def __init__(self, args):
         self.args = args
         self.base_transform = ConfigPreset()
@@ -163,7 +157,6 @@ class DataManager:
         return train_set, val_set
 
     def get_dataloaders(self, train_set, val_set):
-        """获取数据加载器"""
         num_workers = min(os.cpu_count(), self.args.batch_size if self.args.batch_size > 1 else 0, 8)
         train_loader = DataLoader(train_set, self.args.batch_size, shuffle=True, 
                                 num_workers=num_workers, pin_memory=True)
@@ -173,7 +166,6 @@ class DataManager:
 
 # ---------------------------- Training Logic ----------------------------
 class TrainingManager:
-    """训练流程管理"""
     def __init__(self, args, model, optimizer, scheduler, loss_fn, device):
         self.args = args
         self.model = model
@@ -349,7 +341,6 @@ class TrainingManager:
 
 # ---------------------------- Main Function ----------------------------
 def main(args, detailed_time_str):
-    """主训练流程"""
     # 初始化组件
     components = TrainingComponents(args)
     data_mgr = DataManager(args)
@@ -435,7 +426,7 @@ def parse_args():
     # 保存路径
     parser.add_argument('--data_path',          type=str, 
                         default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/datasets/CSV/rock_sem_chged_256_a50_c80.csv", 
-                        help="path to csv dataset")
+                        help="path of csv dataset")
     
     parser.add_argument('--data_root_path',  type=str,
                         default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/datasets/CSV")

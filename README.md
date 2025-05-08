@@ -32,6 +32,8 @@
 **1. Clone Repository**
 ```bash
 git clone https://github.com/Runner-xc/RDAMU-Net.git
+cd RDAMU-Net/
+pip install -r requirements.txt
 ```
 
 **2. Configure Training Parameters**
