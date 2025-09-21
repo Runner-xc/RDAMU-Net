@@ -5,14 +5,15 @@ from torch.utils.data import DataLoader, Dataset
 from utils.my_data import SEM_DATA
 import argparse
 import time
-from model.deeplabv3 import deeplabv3_resnet50, deeplabv3_resnet101, deeplabv3_mobilenetv3_large
-from model.pspnet import PSPNet
-from model.Segnet import SegNet
 from model.u2net import u2net_full_config, u2net_lite_config
-from model.unet import UNet, ResD_UNet
-from model.a_unet import A_UNet
-from model.m_unet import M_UNet
-from model.rdam_unet import RDAM_UNet
+from model.rdam_unet import *
+from model.unet_3plus import UNet_3Plus
+from model.swin_unet import SwinUnet
+from model.res50_unet import RES50_UNet
+from monai.networks.nets import SegResNet, SwinUNETR, UNet
+from model.vim_unet import VMUNet
+from model.att_unet import Attention_UNet
+from model.unet_plusplus import UnetPlusPlus
 from tqdm import tqdm
 from tabulate import tabulate
 from utils.train_and_eval import *
@@ -50,36 +51,22 @@ def main(args):
     
     
     # 加载模型
-    if args.model_name == 'unet':
-        model = UNet(
-                    in_channels=3,
-                    n_classes=4,
-                    p=0)
-    elif args.model_name == 'ResD_unet':
-        model = ResD_UNet(
-                    in_channels=3,
-                    n_classes=4,
-                    p=0)
-    elif args.model_name == 'Segnet':
-        model = SegNet(n_classes=4, dropout_p=0)
-    
-    elif args.model_name == "pspnet":
-        model = PSPNet(classes=4, dropout=0)
+    model_map = {
+            "unet": UNet(spatial_dims=2,in_channels=3, out_channels=4, channels=(16*2, 32*2, 64*2, 128*2, 256*2), strides=(2, 2, 2, 2)),
+            "a_unet": A_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
+            "m_unet": M_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p, w=args.w),
+            "rdam_unet": RDAM_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p, w=args.w),
 
-    elif args.model_name == "deeplabv3":
-        model = deeplabv3_resnet50(num_classes=4, pretrain_backbone=False, aux=False)
-
-    elif args.model_name == "ResD_unet":
-        model = ResD_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=0)
-    elif args.model_name == "a_unet":
-        model = A_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=0)
-    elif args.model_name == "m_unet":
-        model = M_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=0)
-    elif args.model_name == "rdam_unet":
-        model = RDAM_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=0)
-
-    else:
-        raise ValueError(f"model name error")
+            "unet_plusplus": UnetPlusPlus(in_channels=3, num_classes=4, deep_supervision=False),
+            "unet_3plus": UNet_3Plus(in_channels=3, num_classes=4),
+            # "swin_unet": SwinUnet(config=args.cfg,  num_classes=4),
+            "res50_unet": RES50_UNet(in_channels=3, num_classes=4),
+            "att_unet": Attention_UNet(in_channels=3, num_classes=4, p=args.dropout_p, base_channels=32),
+            "vim_unet": VMUNet(input_channels=3, num_classes=4, dropout_r=args.dropout_p),
+        }
+    model = model_map.get(args.model)
+    if not model:
+        raise ValueError(f"Invalid model name: {args.model}")
     
     
     # 加载模型权重
@@ -158,9 +145,9 @@ def main(args):
                 pred_img_pil = Image.fromarray(pred_mask_np)
                 
                 # 保存图片
-                if not os.path.exists(f"{save_path}/pred_img/"):
-                    os.makedirs(f"{save_path}/pred_img/")
-                pred_img_pil.save(f"{save_path}/pred_img/{os.path.splitext(img_name)[0]}.png")
+                if not os.path.exists(f"{save_path}/pred_img/V2/{t}"):
+                    os.makedirs(f"{save_path}/pred_img/V2/{t}")
+                pred_img_pil.save(f"{save_path}/pred_img/V2/{t}/{os.path.splitext(img_name)[0]}.png")
             Metric_list /= len(test_loader)
         metrics_table_header = ['Metrics_Name', 'Mean', 'OM', 'OP', 'IOP']
         metrics_table_left = ['Dice', 'Recall', 'Precision', 'F1_scores', 'mIoU', 'Accuracy']
@@ -193,11 +180,16 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path',      type=str,       default='/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/datasets/CSV/test_rock_sem_chged_256_a50_c80.csv')
+    parser.add_argument('--data_path',      type=str,       default='/mnt/e/VScode/WS-Hub/WS-UNet/UNet/datasets/CSV/test_shale_256_v2.csv')
     parser.add_argument('--base_size',      type=int,       default=256)
-    parser.add_argument('--model_name',     type=str,       default='pspnet',     help=' unet, a_unet, m_unet, rdam_unet, ResD_unet, Segnet, pspnet, deeplabv3, u2net_full, u2net_lite')
+    parser.add_argument('--w',              type=float,     default=0.65)
+    parser.add_argument('--model',          type=str, 
+                        default="vim_unet", 
+                        help=" unet, rdam_unet, a_unet, m_unet, unet_3plus, unet_plusplus, swin_unet, res50_unet, vim_unet\
+                               att_unet, u2net_full, u2net_lite,")
+    
     parser.add_argument('--weights_path',   type=str,       
-                                            default='/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/results/save_weights/pspnet/L: DiceLoss--S: CosineAnnealingLR/optim: AdamW-lr: 0.0008-wd: 1e-06/2025-03-12_10-58-33/model_best_ep_67.pth')
+                                            default='/mnt/e/VScode/WS-Hub/WS-UNet/UNet/old/training_results/weights/msaf_unetv2/L: DiceLoss--S: CosineAnnealingLR/optim: AdamW-lr: 0.0008-wd: 1e-06/2025-03-10_09-44-44/model_best_ep_121.pth')
     
     parser.add_argument('--save_path',      type=str,       default='/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/results/predict')
     parser.add_argument('--single_path',    type=str,       default='/mnt/e/VScode/WS-Hub/WS-UNet/UNet/results/single_predict')

@@ -10,6 +10,7 @@ predict/
 *.jpeg
 *.tif
 **/__pycache__
+*.tar
 
 !images/
 !model.jpg

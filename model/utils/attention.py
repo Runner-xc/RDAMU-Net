@@ -143,11 +143,42 @@ class EMA(nn.Module):
         weights = (torch.matmul(x11, x22) + torch.matmul(x21, x12)).reshape(b * self.group, 1, h, w)
         return (group_x * weights.sigmoid()).reshape(b, c, h, w)
     
+class Att_gate(nn.Module):
+    def __init__(self, F_g, F_l, F_int):
+        super(Att_gate, self).__init__()
+        self.W_g = nn.Sequential(
+            nn.Conv2d(F_g, F_int, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(F_int)
+        )
+
+        self.W_x = nn.Sequential(
+            nn.Conv2d(F_l, F_int, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(F_int)
+        )
+
+        self.psi = nn.Sequential(
+            nn.Conv2d(F_int, 1, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(1),
+            nn.Sigmoid()
+        )
+
+        self.relu = nn.ReLU(inplace=True)
+        
+
+    def forward(self, g, x):
+        g1 = self.W_g(g)
+        x1 = self.W_x(x)
+        psi = self.relu(g1 + x1)
+        # channel 减为1，并Sigmoid,得到权重矩阵
+        psi = self.psi(psi)
+        return x * psi
+    
 """"----------------------------------------------------MDAM-----------------------------------------------------"""
 class MDAM(nn.Module):
-    def __init__(self, channels, factor=32):
+    def __init__(self, channels, w=0.5,factor=32):
         super(MDAM, self).__init__()
         self.group = factor
+        self.w = w
         assert channels // self.group > 0
         self.softmax = nn.Softmax(dim=1)
         self.averagePooling = nn.AdaptiveAvgPool2d((1,1))
@@ -186,7 +217,7 @@ class MDAM(nn.Module):
         y = self.gap(y)
         y = self.fc(y)
 
-        weights = x + y
+        weights = self.w*x + (1-self.w)*y
 
         return (group_x * weights.sigmoid()).reshape(b, c, h, w)
     

@@ -8,14 +8,15 @@ import argparse
 import os
 from torch.optim import Adam, SGD, RMSprop, AdamW
 import time
-from model.deeplabv3 import deeplabv3_resnet50, deeplabv3_resnet101, deeplabv3_mobilenetv3_large
-from model.pspnet import PSPNet
-from model.Segnet import SegNet
 from model.u2net import u2net_full_config, u2net_lite_config
-from model.unet import UNet, ResD_UNet
-from model.a_unet import A_UNet
-from model.m_unet import M_UNet
-from model.rdam_unet import RDAM_UNet
+from model.rdam_unet import *
+from model.unet_3plus import UNet_3Plus
+from model.swin_unet import SwinUnet
+from model.res50_unet import RES50_UNet
+from monai.networks.nets import SegResNet, SwinUNETR, UNet
+from model.vim_unet import VMUNet
+from model.att_unet import Attention_UNet
+from model.unet_plusplus import UnetPlusPlus
 from tabulate import tabulate
 from utils.train_and_eval import *
 from utils.model_initial import *
@@ -30,9 +31,8 @@ from torch.optim.lr_scheduler import LambdaLR
 import math
 from typing import Union, List
 from utils.run_tensorboard import run_tensorboard
-from model.Segnet import SegNet
 from torchinfo import summary
-import swanlab
+from config import get_config
 
 # ---------------------------- Constants and Presets ----------------------------
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
@@ -62,17 +62,17 @@ class TrainingComponents:
         
     def get_model(self):
         model_map = {
-            "unet": UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
-            "ResD_unet": ResD_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
+            "unet": UNet(spatial_dims=2,in_channels=3, out_channels=4, channels=(16*2, 32*2, 64*2, 128*2, 256*2), strides=(2, 2, 2, 2)),
             "a_unet": A_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
-            "m_unet": M_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
-            "rdam_unet": RDAM_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
+            "m_unet": M_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p, w=args.w),
+            "rdam_unet": RDAM_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p, w=args.w),
 
-            "Segnet": SegNet(n_classes=4, dropout_p=args.dropout_p),
-            "pspnet": PSPNet(classes=4, dropout=args.dropout_p, pretrained=False),
-            "deeplabv3_resnet50": deeplabv3_resnet50(aux=False, pretrain_backbone=False, num_classes=4),
-            "deeplabv3_resnet101": deeplabv3_resnet101(aux=False, pretrain_backbone=False, num_classes=4),
-            "deeplabv3_mobilenetv3_large": deeplabv3_mobilenetv3_large(aux=False, pretrain_backbone=False, num_classes=4)
+            "unet_plusplus": UnetPlusPlus(in_channels=3, num_classes=4, deep_supervision=False),
+            "unet_3plus": UNet_3Plus(in_channels=3, num_classes=4),
+            # "swin_unet": SwinUnet(config=args.cfg,  num_classes=4),
+            "res50_unet": RES50_UNet(in_channels=3, num_classes=4),
+            "att_unet": Attention_UNet(in_channels=3, num_classes=4, p=args.dropout_p, base_channels=32),
+            "vim_unet": VMUNet(input_channels=3, num_classes=4, dropout_r=args.dropout_p),
         }
         model = model_map.get(self.args.model)
         if not model:
@@ -151,9 +151,10 @@ class DataManager:
             train, val, test = data_split.data_split_to_train_val_test(
                 self.args.data_path, self.args.split_flag, self.args.train_ratio, self.args.val_ratio, 
                 self.args.data_root_path)
-
-        train_set = SEM_DATA(train, self.base_transform.train_preset(256))
-        val_set = SEM_DATA(val, self.base_transform.eval_preset(256))
+        T_transforms = T.Resize((224, 224)) if 'swin_unet' in args.model else self.base_transform.train_preset(256)
+        V_transforms = T.Resize((224, 224)) if 'swin_unet' in args.model else self.base_transform.eval_preset(256)
+        train_set = SEM_DATA(train,  transforms=T_transforms)
+        val_set = SEM_DATA(val, transforms=V_transforms)
         return train_set, val_set
 
     def get_dataloaders(self, train_set, val_set):
@@ -321,13 +322,13 @@ class TrainingManager:
                         "model_info"    : model_info}
             
             # 保存当前最佳模型的权重
-            best_model_path = f"{save_weights_path}/model_best_ep_{best_epoch}.pth"
+            best_model_path = f"{save_weights_path}/model_best_ep_{best_epoch}_w{args.w}.pth"
             torch.save(save_file, best_model_path)
             print(f"Best model saved at epoch {best_epoch} with mean loss {best_mean_loss}")
             # 删除之前保存的所有包含"model_best"的文件
             path_list = os.listdir(save_weights_path)
             for i in path_list:
-                if "model_best" in i and i != f"model_best_ep_{best_epoch}.pth":
+                if "model_best" in i and i != f"model_best_ep_{best_epoch}_w{args.w}.pth":
                     os.remove(os.path.join(save_weights_path, i))
                     print(f"remove last best weight:{i}")
                     
@@ -446,9 +447,9 @@ def parse_args():
     
     # 模型配置
     parser.add_argument('--model',              type=str, 
-                        default="rdam_unet", 
-                        help=" unet, ResD_unet, rdam_unet, a_unet, m_unet,\
-                               Segnet, deeplabv3_resnet50, deeplabv3_mobilenetv3_large, pspnet, u2net_full, u2net_lite,")
+                        default="vim_unet", 
+                        help=" unet, rdam_unet, a_unet, m_unet, unet_3plus, unet_plusplus, swin_unet, res50_unet, vim_unet\
+                               att_unet, u2net_full, u2net_lite,")
     
     parser.add_argument('--loss_fn',            type=str, 
                         default='DiceLoss', 
@@ -473,22 +474,30 @@ def parse_args():
     parser.add_argument('--amp',            type=bool,  default=True,   help='use mixed precision training or not')
     
     # flag参数
-    parser.add_argument('--tb',             type=bool,  default=False,   help='use tensorboard or not')   
-    parser.add_argument('--save_flag',      type=bool,  default=False,   help='save weights or not')    
+    parser.add_argument('--tb',             type=bool,  default=True,   help='use tensorboard or not')   
+    parser.add_argument('--save_flag',      type=bool,  default=True,   help='save weights or not')    
     parser.add_argument('--split_flag',     type=bool,  default=False,  help='split data or not')
     parser.add_argument('--change_params',  type=bool,  default=False,  help='change params or not')       
     
     # 训练参数
     parser.add_argument('--train_ratio',    type=float, default=0.7) 
     parser.add_argument('--val_ratio',      type=float, default=0.1)
-    parser.add_argument('--batch_size',     type=int,   default=16  ) 
+    parser.add_argument('--batch_size',     type=int,   default=8  ) 
+    parser.add_argument('--w',              type=float, default=0.7  ) 
     parser.add_argument('--start_epoch',    type=int,   default=0,      help='start epoch')
     parser.add_argument('--end_epoch',      type=int,   default=200,    help='ending epoch')
-    parser.add_argument('--warmup_epochs',  type=int,   default=10,      help='number of warmup epochs')
+    parser.add_argument('--warmup_epochs',  type=int,   default=10,     help='number of warmup epochs')
 
 
+    # parser.add_argument('--cfg',            type=str,   default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/cfg/swin_unet.yaml", help='Path to the .yaml config file.')
     parser.add_argument('--lr',             type=float, default=8e-4,   help='learning rate')
     parser.add_argument('--wd',             type=float, default=1e-6,   help='weight decay')
+    # parser.add_argument(
+    #     "--opts",
+    #     help="Modify config options by adding 'KEY VALUE' pairs, e.g. --opts TRAIN.EPOCHS 300 DATA.BATCH_SIZE 32",
+    #     default=None,
+    #     nargs='+',
+    # )
     
     parser.add_argument('--eval_interval',  type=int,   default=1,      help='interval for evaluation')
     parser.add_argument('--num_small_data', type=int,   default=None,   help='number of small data')
@@ -502,4 +511,5 @@ if __name__ == '__main__':
         args = param_modification.param_modification(args)
 
     detailed_time_str = time.strftime("%Y-%m-%d_%H:%M:%S")
+    # args.cfg = get_config(args)
     main(args, detailed_time_str)
