@@ -12,11 +12,7 @@ class Attention_UNet(nn.Module):
                  p, 
                  base_channels=32,
                  ):
-        super(Attention_UNet, self).__init__(
-            in_channels=in_channels,
-            num_classes=num_classes,
-            p=p,
-            base_channels=base_channels)
+        super().__init__()
         # 编码器
         self.encoder1 = DoubleConv(in_channels, base_channels)
         self.encoder2 = DoubleConv(base_channels, base_channels*2)

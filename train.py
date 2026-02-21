@@ -38,6 +38,13 @@ from config import get_config
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
+def set_seed(seed):
+    """设置随机种子以确保结果可复现"""
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
 class ConfigPreset:
     """数据预处理配置预设"""
     @staticmethod
@@ -63,9 +70,9 @@ class TrainingComponents:
     def get_model(self):
         model_map = {
             "unet": UNet(spatial_dims=2,in_channels=3, out_channels=4, channels=(16*2, 32*2, 64*2, 128*2, 256*2), strides=(2, 2, 2, 2)),
-            "a_unet": A_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p),
-            "m_unet": M_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p, w=args.w),
-            "rdam_unet": RDAM_UNet(in_channels=3, n_classes=4, base_channels=32, bilinear=True, p=args.dropout_p, w=args.w),
+            "a_unet": A_UNet(in_channels=3, num_classes=4, base_channels=32, p=args.dropout_p),
+            "m_unet": M_UNet(in_channels=3, num_classes=4, base_channels=32, p=args.dropout_p, w=args.w),
+            "rdam_unet": RDAM_UNet(in_channels=3, num_classes=4, base_channels=32, p=args.dropout_p, w=args.w),
 
             "unet_plusplus": UnetPlusPlus(in_channels=3, num_classes=4, deep_supervision=False),
             "unet_3plus": UNet_3Plus(in_channels=3, num_classes=4),
@@ -342,6 +349,9 @@ class TrainingManager:
 
 # ---------------------------- Main Function ----------------------------
 def main(args, detailed_time_str):
+    # 设置随机种子
+    set_seed(args.seed)
+
     # 初始化组件
     components = TrainingComponents(args)
     data_mgr = DataManager(args)
@@ -406,16 +416,16 @@ def main(args, detailed_time_str):
             # 保存权重
             trainer.save_weights(args, epoch, best_mean_loss, best_epoch, model_info)
 
-        # 记录验证loss是否出现上升       
-        if val_mean_loss <= current_mean_loss:
-            current_mean_loss = val_mean_loss 
-            patience = 0   
-        else:
-            patience += 1
-        # 早停检查
-        if patience >= 50:
-            print("Early stopping triggered!")
-            break
+            # 记录验证loss是否出现上升       
+            if val_mean_loss < current_mean_loss:
+                current_mean_loss = val_mean_loss 
+                patience = 0   
+            else:
+                patience += 1
+            # 早停检查
+            if patience >= args.patience:
+                print(f"Early stopping triggered after {args.patience} epochs without improvement!")
+                break
 
     # 清理资源
     writer.close()
@@ -447,7 +457,7 @@ def parse_args():
     
     # 模型配置
     parser.add_argument('--model',              type=str, 
-                        default="vim_unet", 
+                        default="swin_unet", 
                         help=" unet, rdam_unet, a_unet, m_unet, unet_3plus, unet_plusplus, swin_unet, res50_unet, vim_unet\
                                att_unet, u2net_full, u2net_lite,")
     
@@ -480,6 +490,8 @@ def parse_args():
     parser.add_argument('--change_params',  type=bool,  default=False,  help='change params or not')       
     
     # 训练参数
+
+    parser.add_argument('--seed',           type=int,   default=42) 
     parser.add_argument('--train_ratio',    type=float, default=0.7) 
     parser.add_argument('--val_ratio',      type=float, default=0.1)
     parser.add_argument('--batch_size',     type=int,   default=8  ) 
@@ -500,6 +512,7 @@ def parse_args():
     # )
     
     parser.add_argument('--eval_interval',  type=int,   default=1,      help='interval for evaluation')
+    parser.add_argument('--patience',       type=int,   default=50,     help='early stopping patience')
     parser.add_argument('--num_small_data', type=int,   default=None,   help='number of small data')
     parser.add_argument('--Tmax',           type=int,   default=45,     help='the numbers of half of T for CosineAnnealingLR')
     parser.add_argument('--eta_min',        type=float, default=1e-8,   help='minimum of lr for CosineAnnealingLR')
