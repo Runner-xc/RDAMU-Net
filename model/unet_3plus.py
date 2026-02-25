@@ -392,20 +392,3 @@ class UNet_3Plus(nn.Module):
             
         return l1_lambda * l1_loss + l2_lambda * l2_loss
     
-if __name__ == '__main__':
-    from utils import *      
-    from torchinfo import summary
-    model = UNet_3Plus(in_channels=3, num_classes=4)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = model.to(device)
-    summary(model, (8, 3, 256, 256))
-    # calculate_computation(model, input_size=(3, 256, 256), device=device)
-    # ========================================
-    # Input size: (3, 256, 256)
-    # FLOPs: 28.87 GFLOPs
-    # MACs: 14.44 GMACs
-    # Params: 9.04 M
-    # ========================================
-
-else:
-    from model.utils import *

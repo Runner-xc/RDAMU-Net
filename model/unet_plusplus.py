@@ -156,23 +156,4 @@ class UnetPlusPlus(nn.Module):
       return l1_lambda * l1_loss + l2_lambda * l2_loss
   
  
-if __name__ == "__main__":
-    from utils import calculate_computation
-    print("deep_supervision: False")
-    deep_supervision = False
-    device = torch.device('cpu')
-    inputs = torch.randn((1, 3, 256, 256)).to(device)
-    model = UnetPlusPlus(in_channels=3, num_classes=4, deep_supervision=deep_supervision).to(device)
-    outputs = model(inputs)
-    print(outputs.shape)    
-    summary(model, (8, 3, 256, 256))
-    calculate_computation(model, input_size=(3, 256, 256), device=device)
-
-    print("deep_supervision: True")
-    deep_supervision = True
-    model = UnetPlusPlus(in_channels=3, num_classes=4, deep_supervision=deep_supervision).to(device)
-    outputs = model(inputs)
-    for out in outputs:
-      print(out.shape)
- 
  

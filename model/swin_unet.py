@@ -101,17 +101,3 @@ class SwinUnet(nn.Module):
             l2_loss += torch.pow(param, 2).sum()
             
         return l1_lambda * l1_loss + l2_lambda * l2_loss
-if __name__ == '__main__':
-    from utils import *
-    from utils.swin_transformer_unet_skip_expand_decoder_sys import SwinTransformerSys
-    from pathlib import Path
-    import sys
-    sys.path.append(str(Path(__file__).parent.parent))
-    model = SwinUnet(in_channels=3, num_classes=4, img_size=224)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = model.to(device)
-    summary(model, (8, 3, 224, 224))
-
-else:
-    from model import *
-    from model.utils.swin_transformer_unet_skip_expand_decoder_sys import SwinTransformerSys

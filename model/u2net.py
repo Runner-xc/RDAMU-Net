@@ -219,24 +219,3 @@ def convert_onnx(model, save_path):
                       export_params=True,
                       opset_version=11)
  
-
-if __name__ == '__main__':
-# n_m = RSU(height=7, in_ch=3, mid_ch=12, out_ch=3)
-# convert_onnx(n_m, "RSU7.onnx")
-#
-# n_m = RSU4F(in_ch=3, mid_ch=12, out_ch=3)
-# convert_onnx(n_m, "RSU4F.onnx")
-    x = torch.randn(1, 3, 320, 320)
-    model = u2net_full_config()
-    
-    # 训练
-    model.train()
-    output = model(x)
-    print(output[0].shape)
-    
-    # 推理
-    model.eval()
-    outputs = model(x)
-    print(outputs.shape)
-    
-    # convert_onnx(u2net, "u2net_full_config.onnx")

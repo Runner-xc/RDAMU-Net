@@ -332,6 +332,3 @@ class A_UNet(nn.Module):
             
         return l1_lambda * l1_loss + l2_lambda * l2_loss
 
-if __name__ == "__main__":
-    model = A_UNet(in_channels=3, num_classes=4, p=0)
-    summary(model, (1, 3, 256, 256))

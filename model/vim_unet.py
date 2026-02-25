@@ -780,10 +780,3 @@ class VMUNet(nn.Module):
             l2_loss += torch.pow(param, 2).sum()
         return l1_lambda * l1_loss + l2_lambda * l2_loss
             
-if __name__ == "__main__":
-    from utils import calculate_computation
-    x = torch.randn(3, 3, 256, 256).to("cuda:0")
-    net = VMUNet(3,4, drop_path_rate=0).to("cuda:0")
-    print(net(x).shape)
-    summary(net, (1, 3, 256, 256), device="cuda:0")
-    calculate_computation(net, input_size=(3, 256,256), device="cuda:0")
