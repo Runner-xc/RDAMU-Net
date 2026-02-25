@@ -1,5 +1,4 @@
 import os
-import cv2
 import torch
 import pandas as pd
 import numpy as np
@@ -20,7 +19,7 @@ def save_sem_paths_to_csv(root_path, csv_path, csv_name) -> pd.DataFrame:
     # 遍历root_path下的所有目录和文件
     for root, dirs, files in os.walk(root_path):
         # 只在当前层级查找以'im'或'ma'开头的目录
-        dirs[:] = [d for d in dirs if d.startswith(('chged_images_256_a50_c80', 'chged_masks_256_a50_c80'))]
+        dirs[:] = [d for d in dirs if d.startswith(('', ''))]
         for dir_name in dirs:
             dir_path = os.path.join(root, dir_name)
             # 根据目录名前缀分别处理'img'和'mask'目录
@@ -62,8 +61,12 @@ class SEM_DATA(Dataset):
     def load_data(self, index):
         
         df = pd.read_csv(self.data_path)
-        img_list = df['img'].tolist()
-        mask_list = df['mask'].tolist()
+        if 'img' in df.columns:
+            img_list = df['img'].tolist()
+            mask_list = df['mask'].tolist()
+        else:
+            img_list = df['img_paths'].tolist()
+            mask_list = df['mask_paths'].tolist()
         img_path = img_list[index]
         mask_path = mask_list[index]
         
@@ -98,29 +101,3 @@ class SEM_DATA(Dataset):
 
     
           
-if __name__ == '__main__':
-    #数据集路径
-    root_path = '/root/projects/WS-U2net/U-2-Net/datasets'
-    csv_path = '/root/projects/WS-U2net/U-2-Net/datasets/CSV'
-    csv_name = 'rock_sem_chged_256_a50_c80.csv'
-    save_sem_paths_to_csv(root_path, csv_path, csv_name)
-    # # 转换
-    # img_compose = transforms.Compose([
-    #     transforms.ToTensor(),
-    #     transforms.GaussianBlur((3, 3)),
-    #     transforms.RandomHorizontalFlip(p=0.5),
-    #     transforms.Normalize(mean=[0.485], std=[0.229])
-    #     ])
-    
-    # mask_compose = transforms.Compose([
-    #     transforms.ToTensor(),
-    #     transforms.RandomHorizontalFlip(p=0.5)])
-    
-    # data_path = '/mnt/c/VScode/WS-Hub/WS-U2net/U-2-Net/SEM_DATA/CSV/SEM_path.csv'
-    # sem_dataset = SEM_DATA(data_path, img_transforms=img_compose, mask_transforms=mask_compose)
-    # print(sem_dataset[1][0].shape, sem_dataset[1][1].shape)
-    # trainer = DataLoader(sem_dataset, batch_size=8, shuffle=True)
-    # for batch_data in trainer:
-    #     img, mask = batch_data
-    #     print(img.shape), print(mask.shape)
-    #     break

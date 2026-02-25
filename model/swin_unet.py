@@ -21,28 +21,33 @@ from torchinfo import summary
 logger = logging.getLogger(__name__)
 
 class SwinUnet(nn.Module):
-    def __init__(self, config, img_size=224, num_classes=21843, zero_head=False, vis=False):
+    def __init__(self, in_channels=3, num_classes=4, img_size=224,
+                 patch_size=4, embed_dim=96, depths=[2, 2, 6, 2],
+                 num_heads=[3, 6, 12, 24], window_size=7, mlp_ratio=4.,
+                 qkv_bias=True, qk_scale=None, drop_rate=0.2,
+                 drop_path_rate=0.1, ape=False, patch_norm=True,
+                 pretrain_ckpt=None, zero_head=False, vis=False):
         super(SwinUnet, self).__init__()
         self.num_classes = num_classes
         self.zero_head = zero_head
-        self.config = config
+        self.pretrain_ckpt = pretrain_ckpt
 
-        self.swin_unet = SwinTransformerSys(img_size=config.DATA.IMG_SIZE,
-                                patch_size=config.MODEL.SWIN.PATCH_SIZE,
-                                in_chans=config.MODEL.SWIN.IN_CHANS,
+        self.swin_unet = SwinTransformerSys(img_size=img_size,
+                                patch_size=patch_size,
+                                in_chans=in_channels,
                                 num_classes=self.num_classes,
-                                embed_dim=config.MODEL.SWIN.EMBED_DIM,
-                                depths=config.MODEL.SWIN.DEPTHS,
-                                num_heads=config.MODEL.SWIN.NUM_HEADS,
-                                window_size=config.MODEL.SWIN.WINDOW_SIZE,
-                                mlp_ratio=config.MODEL.SWIN.MLP_RATIO,
-                                qkv_bias=config.MODEL.SWIN.QKV_BIAS,
-                                qk_scale=config.MODEL.SWIN.QK_SCALE,
-                                drop_rate=config.MODEL.DROPOUT_P,
-                                drop_path_rate=config.MODEL.DROP_PATH_RATE,
-                                ape=config.MODEL.SWIN.APE,
-                                patch_norm=config.MODEL.SWIN.PATCH_NORM,
-                                use_checkpoint=config.MODEL.PRETRAIN_CKPT
+                                embed_dim=embed_dim,
+                                depths=depths,
+                                num_heads=num_heads,
+                                window_size=window_size,
+                                mlp_ratio=mlp_ratio,
+                                qkv_bias=qkv_bias,
+                                qk_scale=qk_scale,
+                                drop_rate=drop_rate,
+                                drop_path_rate=drop_path_rate,
+                                ape=ape,
+                                patch_norm=patch_norm,
+                                use_checkpoint=False
                                 )
 
     def forward(self, x):
@@ -51,8 +56,8 @@ class SwinUnet(nn.Module):
         logits = self.swin_unet(x)
         return logits
 
-    def load_from(self, config):
-        pretrained_path = config.MODEL.PRETRAIN_CKPT
+    def load_from(self, pretrain_ckpt=None):
+        pretrained_path = pretrain_ckpt or self.pretrain_ckpt
         if pretrained_path is not None:
             print("pretrained_path:{}".format(pretrained_path))
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -99,27 +104,13 @@ class SwinUnet(nn.Module):
 if __name__ == '__main__':
     from utils import *
     from utils.swin_transformer_unet_skip_expand_decoder_sys import SwinTransformerSys
-    import argparse
     from pathlib import Path
     import sys
     sys.path.append(str(Path(__file__).parent.parent))
-    print(sys.path[-1])
-    from config import get_config
-    parser = argparse.ArgumentParser(description="Train a segmentation model with a flexible config system.")
-    parser.add_argument('--cfg', type=str, default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/cfg/swin_unet.yaml",help='Path to the .yaml config file.')
-    parser.add_argument(
-        "--opts",
-        help="Modify config options by adding 'KEY VALUE' pairs, e.g. --opts TRAIN.EPOCHS 300 DATA.BATCH_SIZE 32",
-        default=None,
-        nargs='+',
-    )
-    args = parser.parse_args()
-    cfg = get_config(args)
-    model = SwinUnet(config=cfg, num_classes=4)
+    model = SwinUnet(in_channels=3, num_classes=4, img_size=224)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
     summary(model, (8, 3, 224, 224))
-    # calculate_computation(model, input_size=(3, 224, 224), device=device)
 
 else:
     from model import *

@@ -3,6 +3,7 @@ SEM_DATA/
 results/
 cam_img/
 predict/
+test/
 
 *.onnx
 *.jpg

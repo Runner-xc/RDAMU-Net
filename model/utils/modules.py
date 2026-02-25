@@ -472,7 +472,7 @@ if __name__ == '__main__':
           model)
 
 else:
-    from model.utils.attention import *
+    from utils.attention import *
 
         
      

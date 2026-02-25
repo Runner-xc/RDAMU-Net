@@ -17,13 +17,15 @@ cd RDAMU-Net/
 pip install -r requirements.txt
 ```
 
-**2. Configure Training Parameters**
+***2. Train**
 ```bash
 python train.py \
-   --data_path your_dataset.csv \
-   --data_root_path csv_root_path \
-   --model model 
-   ```
+   --model model_name \
+   --train_csv ./train.csv \
+   --val_csv   ./val.csv \
+   --test_csv  ./test.csv
+```
+
 
 ### 📦 Data Preparation
 #### 📂 File Structure
@@ -32,12 +34,6 @@ datasets/
 ├── csv/           # Data paths
 ├── images/        # Raw images 
 └── masks/         # masks
-```
-
-#### 🔄 Generate CSV File
-```python
-from utils.my_data import save_sem_paths_to_csv
-save_sem_paths_to_csv("root_path", "csv_path", "csv_name")
 ```
 
 ### ©️ License

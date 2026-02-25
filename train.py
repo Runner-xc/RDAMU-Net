@@ -2,7 +2,6 @@ import torch
 import datetime
 from torch.utils.data import DataLoader
 from utils.my_data import SEM_DATA
-from utils import data_split
 from utils.writing_logs import writing_logs
 import argparse
 import os
@@ -13,9 +12,8 @@ from model.rdam_unet import *
 from model.unet_3plus import UNet_3Plus
 from model.swin_unet import SwinUnet
 from model.res50_unet import RES50_UNet
-from monai.networks.nets import SegResNet, SwinUNETR, UNet
+from monai.networks.nets import SegResNet, SwinUNETR, UNet, AttentionUnet,Res50_UNet
 from model.vim_unet import VMUNet
-from model.att_unet import Attention_UNet
 from model.unet_plusplus import UnetPlusPlus
 from tabulate import tabulate
 from utils.train_and_eval import *
@@ -31,8 +29,7 @@ from torch.optim.lr_scheduler import LambdaLR
 import math
 from typing import Union, List
 from utils.run_tensorboard import run_tensorboard
-from torchinfo import summary
-from config import get_config
+import random
 
 # ---------------------------- Constants and Presets ----------------------------
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
@@ -40,10 +37,14 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 def set_seed(seed):
     """设置随机种子以确保结果可复现"""
+    random.seed(seed)
+    np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 class ConfigPreset:
     """数据预处理配置预设"""
@@ -76,9 +77,10 @@ class TrainingComponents:
 
             "unet_plusplus": UnetPlusPlus(in_channels=3, num_classes=4, deep_supervision=False),
             "unet_3plus": UNet_3Plus(in_channels=3, num_classes=4),
-            # "swin_unet": SwinUnet(config=args.cfg,  num_classes=4),
+            "swin_unet": SwinUnet(in_channels=3, num_classes=4, img_size=224, drop_rate=args.dropout_p),
             "res50_unet": RES50_UNet(in_channels=3, num_classes=4),
-            "att_unet": Attention_UNet(in_channels=3, num_classes=4, p=args.dropout_p, base_channels=32),
+            "att_unet": AttentionUnet(spatial_dims=2, in_channels=3, out_channels=4,
+                                        channels=(32, 64, 128, 256, 512), strides=(2, 2, 2, 2)),
             "vim_unet": VMUNet(input_channels=3, num_classes=4, dropout_r=args.dropout_p),
         }
         model = model_map.get(self.args.model)
@@ -151,15 +153,24 @@ class DataManager:
 
     def load_datasets(self):
         """加载数据集"""
-        if self.args.num_small_data:
-            train, val, test = data_split.small_data_split_to_train_val_test(
-                self.args.data_path, self.args.num_small_data, self.args.split_flag, self.args.train_ratio, self.args.val_ratio,self.args.data_root_path)
+        train = self.args.train_csv
+        val = self.args.val_csv
+        test = self.args.test_csv
+        
+        if 'swin_unet' in self.args.model:
+            T_transforms = T.Compose([
+                T.ToTensor(),
+                T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                T.Resize((224, 224)),
+            ])
+            V_transforms = T.Compose([
+                T.ToTensor(),
+                T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                T.Resize((224, 224)),
+            ])
         else:
-            train, val, test = data_split.data_split_to_train_val_test(
-                self.args.data_path, self.args.split_flag, self.args.train_ratio, self.args.val_ratio, 
-                self.args.data_root_path)
-        T_transforms = T.Resize((224, 224)) if 'swin_unet' in args.model else self.base_transform.train_preset(256)
-        V_transforms = T.Resize((224, 224)) if 'swin_unet' in args.model else self.base_transform.eval_preset(256)
+            T_transforms = self.base_transform.train_preset(256)
+            V_transforms = self.base_transform.eval_preset(256)
         train_set = SEM_DATA(train,  transforms=T_transforms)
         val_set = SEM_DATA(val, transforms=V_transforms)
         return train_set, val_set
@@ -174,7 +185,7 @@ class DataManager:
 
 # ---------------------------- Training Logic ----------------------------
 class TrainingManager:
-    def __init__(self, args, model, optimizer, scheduler, loss_fn, device):
+    def __init__(self, args, model, optimizer, scheduler, loss_fn, device, detailed_time_str):
         self.args = args
         self.model = model
         self.optimizer = optimizer
@@ -183,6 +194,7 @@ class TrainingManager:
         self.device = device
         self.metrics = Evaluate_Metric()
         self.scaler = torch.amp.GradScaler() if args.amp else None
+        self.detailed_time_str = detailed_time_str
      
     def _train_epoch(self, epoch, dataloader):
         """
@@ -297,9 +309,9 @@ class TrainingManager:
         # 保存结果
         save_scores_path = f'{args.save_scores_path}/{args.model}/L_{args.loss_fn}--S_{args.scheduler}'
         if args.elnloss:
-            results_file = f"optim_{args.optimizer}-lr_{args.lr}-l1_{args.l1_lambda}-l2_{args.l2_lambda}/{detailed_time_str}.txt"
+            results_file = f"optim_{args.optimizer}-lr_{args.lr}-l1_{args.l1_lambda}-l2_{args.l2_lambda}/{self.detailed_time_str}.txt"
         else:
-            results_file = f"optim_{args.optimizer}-lr_{args.lr}-wd_{args.wd}/{detailed_time_str}.txt"
+            results_file = f"optim_{args.optimizer}-lr_{args.lr}-wd_{args.wd}/{self.detailed_time_str}.txt"
         file_path = os.path.join(save_scores_path, results_file)
 
         if not os.path.exists(os.path.dirname(file_path)):
@@ -308,13 +320,13 @@ class TrainingManager:
             with open(file_path, "a") as f:
                 f.write(write_info)
     
-    def save_weights(self, args, epoch, best_mean_loss, best_epoch, model_info):
+    def save_weights(self, args, epoch, best_mean_loss, best_epoch):
         if args.save_flag:
             # 保存best模型
             if args.elnloss:
-                save_weights_path = f"{args.save_weight_path}/{args.model}/L_{args.loss_fn}--S_{args.scheduler}/optim_{args.optimizer}-lr_{args.lr}-l1_{args.l1_lambda}-l2_{args.l2_lambda}/{detailed_time_str}"  # 保存权重路径
+                save_weights_path = f"{args.save_weight_path}/{args.model}/L_{args.loss_fn}--S_{args.scheduler}/optim_{args.optimizer}-lr_{args.lr}-l1_{args.l1_lambda}-l2_{args.l2_lambda}/{self.detailed_time_str}"  # 保存权重路径
             else:
-                save_weights_path = f"{args.save_weight_path}/{args.model}/L_{args.loss_fn}--S_{args.scheduler}/optim_{args.optimizer}-lr_{args.lr}-wd_{args.wd}/{detailed_time_str}"
+                save_weights_path = f"{args.save_weight_path}/{args.model}/L_{args.loss_fn}--S_{args.scheduler}/optim_{args.optimizer}-lr_{args.lr}-wd_{args.wd}/{self.detailed_time_str}"
                 
             if not os.path.exists(save_weights_path):
                 os.makedirs(save_weights_path)
@@ -325,32 +337,24 @@ class TrainingManager:
                         "scheduler"     : self.scheduler.state_dict(),
                         "best_mean_loss": best_mean_loss,
                         "best_epoch"    : best_epoch,
-                        "step"          : self.scheduler.last_epoch,
-                        "model_info"    : model_info}
+                        "step"          : self.scheduler.last_epoch}
             
             # 保存当前最佳模型的权重
-            best_model_path = f"{save_weights_path}/model_best_ep_{best_epoch}_w{args.w}.pth"
+            best_model_path = f"{save_weights_path}/model_best_ep_{best_epoch}_w{args.w}_seed{args.seed}.pth"
             torch.save(save_file, best_model_path)
             print(f"Best model saved at epoch {best_epoch} with mean loss {best_mean_loss}")
             # 删除之前保存的所有包含"model_best"的文件
             path_list = os.listdir(save_weights_path)
             for i in path_list:
-                if "model_best" in i and i != f"model_best_ep_{best_epoch}_w{args.w}.pth":
+                if "model_best" in i and i != f"model_best_ep_{best_epoch}_w{args.w}_seed{args.seed}.pth":
                     os.remove(os.path.join(save_weights_path, i))
-                    print(f"remove last best weight:{i}")
-                    
-            # only save latest 3 epoch weights
-            if os.path.exists(f"{save_weights_path}/model_ep_{epoch-3}.pth"):
-                os.remove(f"{save_weights_path}/model_ep_{epoch-3}.pth")
-                
-            if not os.path.exists(save_weights_path):
-                os.makedirs(save_weights_path)
-            torch.save(save_file, f"{save_weights_path}/model_ep_{epoch}.pth") 
+                    print(f"remove last best weight:{i}") 
 
 # ---------------------------- Main Function ----------------------------
 def main(args, detailed_time_str):
     # 设置随机种子
     set_seed(args.seed)
+    start_time = time.time()
 
     # 初始化组件
     components = TrainingComponents(args)
@@ -362,7 +366,6 @@ def main(args, detailed_time_str):
     
     # 初始化模型和训练组件
     model = components.get_model()
-    model_info = str(summary(model))
 
     optimizer = components.get_optimizer(model)
     scheduler = components.get_scheduler(optimizer, train_loader)
@@ -371,7 +374,7 @@ def main(args, detailed_time_str):
         writer, log_path = components.get_writer(detailed_time_str)
     
     # 初始化训练管理器
-    trainer = TrainingManager(args, model, optimizer, scheduler, loss_fn, components.device)
+    trainer = TrainingManager(args, model, optimizer, scheduler, loss_fn, components.device, detailed_time_str)
 
     best_mean_loss, current_miou = float('inf'), 0.0
     best_epoch = 0 
@@ -410,11 +413,11 @@ def main(args, detailed_time_str):
             if best_mean_loss >= val_mean_loss:
                 best_mean_loss = val_mean_loss
                 best_epoch = epoch + 1
+                # 保存权重 (仅在最佳时保存)
+                trainer.save_weights(args, epoch, best_mean_loss, best_epoch)
                 
             # 保存指标
             trainer.save_metrics(args, epoch, args.end_epoch, best_epoch)
-            # 保存权重
-            trainer.save_weights(args, epoch, best_mean_loss, best_epoch, model_info)
 
             # 记录验证loss是否出现上升       
             if val_mean_loss < current_mean_loss:
@@ -429,35 +432,40 @@ def main(args, detailed_time_str):
 
     # 清理资源
     writer.close()
-    print(f"Training completed in {time.time()-detailed_time_str:.2f} seconds")
+    print(f"Training completed in {time.time()-start_time:.2f} seconds")
 
 def parse_args():
     """参数解析"""
     parser = argparse.ArgumentParser(description="SEM图像分割训练脚本")
-    # 保存路径
-    parser.add_argument('--data_path',          type=str, 
-                        default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/datasets/CSV/rock_sem_chged_256_a50_c80.csv", 
-                        help="path of csv dataset")
+    # 数据集路径
+    parser.add_argument('--train_csv',          type=str, 
+                        required=True, 
+                        help="path of train csv dataset")
     
-    parser.add_argument('--data_root_path',  type=str,
-                        default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/datasets/CSV")
+    parser.add_argument('--val_csv',            type=str, 
+                        required=True, 
+                        help="path of val csv dataset")
+    
+    parser.add_argument('--test_csv',           type=str, 
+                        default="path/to/test.csv", 
+                        help="path of test csv dataset")
     
     # results
     parser.add_argument('--save_scores_path',   type=str, 
-                        default='/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/results/save_scores')
+                        default='./results/save_scores')
     
     parser.add_argument('--save_weight_path',   type=str,
-                        default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/results/save_weights")
+                        default="./results/save_weights")
     
     parser.add_argument('--log_path',  type=str,
-                        default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/results/logs")
+                        default="./results/logs")
     
     parser.add_argument('--modification_path', type=str,
-                        default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/results/modification_log")
+                        default="./results/modification_log")
     
     # 模型配置
     parser.add_argument('--model',              type=str, 
-                        default="swin_unet", 
+                        default="res50_unet", 
                         help=" unet, rdam_unet, a_unet, m_unet, unet_3plus, unet_plusplus, swin_unet, res50_unet, vim_unet\
                                att_unet, u2net_full, u2net_lite,")
     
@@ -486,22 +494,19 @@ def parse_args():
     # flag参数
     parser.add_argument('--tb',             type=bool,  default=True,   help='use tensorboard or not')   
     parser.add_argument('--save_flag',      type=bool,  default=True,   help='save weights or not')    
-    parser.add_argument('--split_flag',     type=bool,  default=False,  help='split data or not')
     parser.add_argument('--change_params',  type=bool,  default=False,  help='change params or not')       
     
     # 训练参数
 
     parser.add_argument('--seed',           type=int,   default=42) 
-    parser.add_argument('--train_ratio',    type=float, default=0.7) 
-    parser.add_argument('--val_ratio',      type=float, default=0.1)
-    parser.add_argument('--batch_size',     type=int,   default=8  ) 
+    parser.add_argument('--batch_size',     type=int,   default=16  ) 
     parser.add_argument('--w',              type=float, default=0.7  ) 
     parser.add_argument('--start_epoch',    type=int,   default=0,      help='start epoch')
-    parser.add_argument('--end_epoch',      type=int,   default=200,    help='ending epoch')
+    parser.add_argument('--end_epoch',      type=int,   default=2,    help='ending epoch')
     parser.add_argument('--warmup_epochs',  type=int,   default=10,     help='number of warmup epochs')
 
 
-    # parser.add_argument('--cfg',            type=str,   default="/mnt/e/VScode/WS-Hub/Linux-RDAMU_Net/RDAMU-Net/cfg/swin_unet.yaml", help='Path to the .yaml config file.')
+    # parser.add_argument('--cfg',            type=str,   default="./cfg/swin_unet.yaml", help='Path to the .yaml config file.')
     parser.add_argument('--lr',             type=float, default=8e-4,   help='learning rate')
     parser.add_argument('--wd',             type=float, default=1e-6,   help='weight decay')
     # parser.add_argument(
@@ -512,8 +517,7 @@ def parse_args():
     # )
     
     parser.add_argument('--eval_interval',  type=int,   default=1,      help='interval for evaluation')
-    parser.add_argument('--patience',       type=int,   default=50,     help='early stopping patience')
-    parser.add_argument('--num_small_data', type=int,   default=None,   help='number of small data')
+    parser.add_argument('--patience',       type=int,   default=30,     help='early stopping patience')
     parser.add_argument('--Tmax',           type=int,   default=45,     help='the numbers of half of T for CosineAnnealingLR')
     parser.add_argument('--eta_min',        type=float, default=1e-8,   help='minimum of lr for CosineAnnealingLR')
     return parser.parse_args()
@@ -524,5 +528,4 @@ if __name__ == '__main__':
         args = param_modification.param_modification(args)
 
     detailed_time_str = time.strftime("%Y-%m-%d_%H:%M:%S")
-    # args.cfg = get_config(args)
     main(args, detailed_time_str)
